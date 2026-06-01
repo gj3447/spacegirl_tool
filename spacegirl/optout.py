@@ -86,7 +86,7 @@ def c2pa_manifest(title: str = "", contact: str = "", as_json: bool = True):
     provenance/consent 층(PROM 12 teeth)의 machine-readable 표현.
     """
     manifest = {
-        "claim_generator": "spacegirl_tool/0.2",
+        "claim_generator": "spacegirl_tool/0.3",
         "title": title or "do-not-train asset",
         "assertions": [
             {

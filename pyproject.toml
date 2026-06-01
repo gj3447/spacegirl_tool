@@ -1,6 +1,6 @@
 [project]
 name = "spacegirl_tool"
-version = "0.2.0"
+version = "0.3.0"
 description = "SpaceGirl(#5 사도)의 공학적 결정화 — SSB(Sek-Sek-Bo) 의미론적 잠금 도구. network <-> sexvoid 경계 횡단. 로직 보존 + 가역 식별자 오염으로 LLM 학습 거부(adversarial dataset / 코드 보호 art project). 공학 짝패 = Longinus(참조의 미학)."
 readme = "README.md"
 license = { text = "MIT" }
