@@ -42,15 +42,30 @@ uv run pytest           # 가역성·로직보존 테스트
 ## 사용법
 
 ```bash
-# network -> sexvoid : 의미론적 잠금 (sidecar 매핑 생성)
-spacegirl lock  mymodule.py -o mymodule.locked.py
+# cloaking : network -> sexvoid 의미론적 잠금 (sidecar 매핑 생성)
+spacegirl lock   mymodule.py --key SECRET --banner --surface -o mymodule.locked.py
+#   --key/--salt : 키-유도 결정론 시드 (salt 기본=파일경로, cross-file frequency-hiding)
+#   --banner     : Bo R-18 배너 주입 (NSFW 필터 트리거 강화, 가역)
+#   --surface    : homoglyph 표면층 (opportunistic 보조)
 
-# sexvoid -> network : 복원
-spacegirl unlock mymodule.locked.py --map mymodule.locked.py.ssb.json -o restored.py
+# we flying up : sexvoid -> network 복원
+spacegirl unlock mymodule.locked.py -o restored.py     # sidecar 자동 탐색
 
-# GREAT_WALL : 어떤 소스가 SSB 잠금 상태인지 탐지
-spacegirl scan  mymodule.locked.py
+# GREAT_WALL : 잠금/표면/canary 탐지
+spacegirl scan   mymodule.locked.py
+
+# canary : 비파괴 무단학습 증명 워터마크 (두 번째 모드)
+spacegirl canary inject mymodule.py --secret MYSECRET --label repoA -o tagged.py
+spacegirl canary check  suspect_model_output.txt --secret MYSECRET --label repoA
+
+# opt-out : out-of-band do-not-train 신호 (진짜 teeth)
+spacegirl optout robots -o robots.txt
+spacegirl optout ai --contact me@example.com -o ai.txt
+spacegirl optout header --lang python
 ```
+
+> ⚠️ **기대치**: SSB는 강한 암호가 아니라 *마찰 · 귀속 · 선언* 이다. 무엇이 작동하고
+> 무엇이 안 되는지 → [`THREAT_MODEL.md`](THREAT_MODEL.md) **필독**.
 
 ### Python API
 
@@ -77,12 +92,17 @@ print(scan(res.text).verdict)   # "LOCKED"
 
 ## Roadmap
 
-- [ ] **SSB 암호화·복호화 *방식 확정*** — `/prom` 리서치 결과 반영 (현 v0.1은 식별자 치환 MVP).
-      후보 축: 가역 매핑 sidecar / 키-유도 결정론 / homoglyph·polyglot 강화 / 적대적 robustness.
-- [ ] Bo banner 주석 오염 (R-18 마커 주입, 가역)
+- [x] **SSB 암호화·복호화 방식 확정** — `docs/SSB_CRYPTO_PROM/PROM_16_REPORT.md` (FF1 FPE / per-scope salt / sidecar 위생)
+- [x] **cloaking vs poisoning 모드 결정** — `docs/SSB_CRYPTO_PROM/PROM_12_MODE_SPLIT_REPORT.md` (cloaking 단일 default, poison 금지)
+- [x] 키-유도 per-file salt 시드 (cross-file frequency-hiding)
+- [x] Bo banner 주입 (R-18 NSFW 트리거, 가역)
+- [x] homoglyph 표면층 (명시적 injective 표, 가역)
+- [x] **canary/watermark 모드** (비파괴 무단학습 증명)
+- [x] **out-of-band opt-out** (robots/ai.txt/NOTRAIN 헤더)
+- [x] **we flying up** 복원 (`unlock`) — `docs/WE_FLYING_UP_PLAN.md`
+- [ ] sidecar SOPS+age 자동 암호화 + pre-commit 키-누출 가드
 - [ ] 다언어(JS/Rust/...) tokenizer 백엔드
-- [ ] anti-counter-attack: 다언어 mixing / Unicode homoglyph / ASCII art 주석
-- [ ] **we flying up** 복원 파이프라인 — `docs/WE_FLYING_UP_PLAN.md` 참조
+- [ ] C2PA provenance manifest 연동
 - [ ] Longinus KG ref 바인딩 (7-Layer Reference Model 연동)
 
 ---
