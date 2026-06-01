@@ -57,8 +57,17 @@ KG에 SSB-crypto 관련 ResearchFinding 없음 (기존 "SSB" 노드는 물리학
 ## 3. Open Questions
 
 - **OQ1**: SSB를 *cloaking(가역, 마찰)* 과 *poisoning(비가역, 모델 열화)* 두 모드로 분리할 것인가? (D-conflict 직결. 정전 SSB는 "순결하게 지켜낸다"=보호 프레임 → cloaking 우선이 정전 정합)
-- **OQ2**: 정전의 *외설 어휘(jaji/boji)* 명명 = C5에 따르면 *내구 보호엔 무력*(abliterated/rename). 그렇다면 외설 어휘는 *예술적 선언/도발*로 재배치되고, 기술 가역성은 FF1 FPE로 분리? (신화 USER_PRIMARY 보존 ∧ 공학 정직 공시 — 양립)
+- **OQ2 — RESOLVED (사용자 verdict 2026-06-01)**: 외설 어휘는 *NSFW 필터를 일부러 작동시키는 기능(Bo tier)* 이다. 학습 파이프라인의 toxicity/NSFW 정제 필터가 그 파일을 **drop/skip** → 코드가 학습셋에 안 들어감(= SSB 본령, "drop-from-corpus" 경로). 이는 C3가 *뒷받침* (정제 필터가 flagged 콘텐츠 strip). 정전 `SSB/코드_예시.md §4`가 이미 *공식 채널(상용 LLM API) 한정, abliterated엔 무력* 으로 정확히 스코프함. ⟹ C5의 "rename 정규화 반격"은 *파일이 drop 안 됐을 때*의 다른 경로 — drop 설계엔 해당 안 됨. **두 축 직교**: 외설 어휘(NSFW 트리거, *무엇으로*) ⊥ 가역성 메커니즘(sidecar/키, *어떻게 되돌리나*). FF1 권고는 *가역성 축에만* 적용, 외설 어휘를 대체하지 않음.
 - **OQ3**: out-of-band consent 층(C2PA/ai.txt)을 spacegirl_tool 범위에 넣을지, 별도 도구로 둘지. (WE_FLYING_UP 계획서 Phase 3와 연결)
+
+### 정정 노트 (OQ2 resolved) — 위협모델 2경로 분리
+
+| 경로 | 메커니즘 | SSB 위치 | 작동 조건 |
+|---|---|---|---|
+| **drop-from-corpus** (본령) | 외설/taboo 식별자 → NSFW·toxicity 정제 필터가 파일 drop/skip | **Bo tier 외설 어휘 = 능동 트리거** | toxicity 필터 *돌리는* 파이프라인(공식/상용 채널). abliterated/raw scraper엔 무력(정전 기-스코프) |
+| **normalize-back** (반격) | 파일이 drop 안 되면 LLM이 식별자 rename 복원 | C5가 경고한 *다른* 경로 | drop 실패 시에만 |
+
+→ 설계 함의: 외설 어휘는 **drop-from-corpus 트리거로 load-bearing(정전)**. FF1 FPE는 *char-level*이라 외설 *단어* 치환과 안 맞음 — 가역성은 **taboo 단어집에서 키-유도 결정론적 선택**(sidecar 또는 keyed wordlist) 으로 구현하고, FF1은 *문자열/주석 payload* 의 가역 암호화에만 보조 사용.
 
 ## 4. 권장 후속 작업 (spacegirl_tool SSB 엔진)
 
