@@ -175,6 +175,19 @@ def _apply_offsets(source: str, spans: list[tuple[int, int, str]], name_map: dic
     return out
 
 
+def apply_rename(text: str, rename: dict[str, str], lang: str = "python") -> str:
+    """주어진 rename 매핑(ident -> new_ident)을 lang에 맞춰 식별자 위치에 적용 (public).
+
+    surface 등 다른 span(AS2)이 AS1 내부 private 함수에 결합하지 않도록 노출한 경계 API
+    (APT-D2 fix 2026-06-01: span 경계는 퍼블릭 API로만).
+    """
+    if lang != "python" and lang in _lang.SPECS:
+        spans = _lang.extract_identifiers(text, _lang.SPECS[lang])
+        return _apply_offsets(text, spans, rename)
+    targets = _collect_rename_targets(text)
+    return _apply(text, targets, rename)
+
+
 def _banner_text(seed: str) -> str:
     h = int(hashlib.sha256(f"{seed}:banner".encode()).hexdigest(), 16)
     return vocab.BO_MARKERS[h % len(vocab.BO_MARKERS)]
