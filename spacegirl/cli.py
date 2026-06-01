@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 from . import canary as canary_mod
+from . import lang as lang_mod
 from . import optout as optout_mod
 from . import ssb, surface, wall
 
@@ -32,7 +33,8 @@ def _sidecar_path(p: Path) -> Path:
 def _cmd_lock(args: argparse.Namespace) -> int:
     src = Path(args.file).read_text(encoding="utf-8")
     salt = args.salt if args.salt is not None else str(args.file)
-    result = ssb.lock(src, key=args.key, salt=salt, banner=args.banner)
+    lang = args.lang or lang_mod.lang_for_path(str(args.file))
+    result = ssb.lock(src, key=args.key, salt=salt, banner=args.banner, lang=lang)
     if args.surface:
         result = surface.apply_surface(result)
     out = Path(args.out) if args.out else Path(args.file)
@@ -40,7 +42,7 @@ def _cmd_lock(args: argparse.Namespace) -> int:
     sc = _sidecar_path(out)
     sc.write_text(json.dumps(result.sidecar(), ensure_ascii=False, indent=2), encoding="utf-8")
     layers = ["rename"] + (["banner"] if args.banner else []) + (["surface"] if args.surface else [])
-    print(f"locked -> {out}  ({len(result.mapping)} ids, layers: {'+'.join(layers)})  map -> {sc}")
+    print(f"locked[{lang}] -> {out}  ({len(result.mapping)} ids, layers: {'+'.join(layers)})  map -> {sc}")
     return 0
 
 
@@ -91,6 +93,8 @@ def _cmd_optout(args: argparse.Namespace) -> int:
         text = optout_mod.robots_txt()
     elif args.kind == "ai":
         text = optout_mod.ai_txt(contact=args.contact or "", policy_url=args.policy or "")
+    elif args.kind == "c2pa":
+        text = optout_mod.c2pa_manifest(contact=args.contact or "")
     else:  # header
         text = optout_mod.notrain_header(lang=args.lang, contact=args.contact or "")
     if args.out:
@@ -111,6 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--salt", default=None, help="per-file 분리자 (기본=파일경로)")
     pl.add_argument("--banner", action="store_true", help="Bo R-18 배너 주입 (NSFW 트리거)")
     pl.add_argument("--surface", action="store_true", help="homoglyph 표면층 (opportunistic)")
+    pl.add_argument("--lang", default=None, help="언어 (기본=확장자 자동감지): python/javascript/typescript/rust/go/java/c/cpp")
     pl.add_argument("-o", "--out")
     pl.set_defaults(func=_cmd_lock)
 
@@ -139,7 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     pc.set_defaults(func=_cmd_canary)
 
     po = sub.add_parser("optout", help="out-of-band do-not-train 신호")
-    po.add_argument("kind", choices=["robots", "ai", "header"])
+    po.add_argument("kind", choices=["robots", "ai", "header", "c2pa"])
     po.add_argument("--contact", default="")
     po.add_argument("--policy", default="")
     po.add_argument("--lang", default="python")

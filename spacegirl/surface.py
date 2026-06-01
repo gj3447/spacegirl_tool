@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 
+from . import lang as _lang
 from . import ssb, vocab
 from .ssb import LockResult
 
@@ -43,8 +44,13 @@ def apply_surface(result: LockResult) -> LockResult:
         new_map[original] = hg
 
     # 텍스트 내 잠긴 토큰을 homoglyph 버전으로 치환 (토큰 위치 기반)
-    targets = ssb._collect_rename_targets(result.text)
-    text = ssb._apply(result.text, targets, rename_locked)
+    lang = result.meta.get("lang", "python")
+    if lang != "python" and lang in _lang.SPECS:
+        spans = _lang.extract_identifiers(result.text, _lang.SPECS[lang])
+        text = ssb._apply_offsets(result.text, spans, rename_locked)
+    else:
+        targets = ssb._collect_rename_targets(result.text)
+        text = ssb._apply(result.text, targets, rename_locked)
 
     meta = {**result.meta, "surface": "homoglyph"}
     return LockResult(text=text, mapping=new_map, meta=meta)

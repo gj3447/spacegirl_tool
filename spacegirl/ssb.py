@@ -34,6 +34,7 @@ import keyword
 import tokenize
 from dataclasses import dataclass, field
 
+from . import lang as _lang
 from . import vocab
 
 _BUILTINS = frozenset(dir(builtins))
@@ -165,6 +166,15 @@ def _apply(text: str, targets: list[tokenize.TokenInfo], name_map: dict[str, str
     return out
 
 
+def _apply_offsets(source: str, spans: list[tuple[int, int, str]], name_map: dict[str, str]) -> str:
+    """absolute-offset span 기반 치환 (비-Python 백엔드용)."""
+    edits = [(s, e, name_map[nm]) for s, e, nm in spans if nm in name_map]
+    out = source
+    for s, e, new in sorted(edits, key=lambda x: x[0], reverse=True):
+        out = out[:s] + new + out[e:]
+    return out
+
+
 def _banner_text(seed: str) -> str:
     h = int(hashlib.sha256(f"{seed}:banner".encode()).hexdigest(), 16)
     return vocab.BO_MARKERS[h % len(vocab.BO_MARKERS)]
@@ -176,23 +186,33 @@ def lock(
     salt: str = "",
     banner: bool = False,
     seed: str = "spacegirl",
+    lang: str = "python",
 ) -> LockResult:
     """network -> sexvoid: 식별자를 오염시켜 의미론적으로 잠근다 (가역).
 
     key: 비밀 시드. None이면 seed 사용(하위호환). 매핑 재현엔 key+salt 필요.
     salt: per-file 분리자 (보통 파일경로) — cross-file frequency-hiding.
     banner: 상단에 Bo(R-18) 마커 주입 — NSFW 필터 트리거 강화 (가역).
+    lang: 'python'(AST-aware) 또는 javascript/typescript/rust/go/java/c/cpp(generic).
     """
     eff_seed = _derive_seed(key, salt, seed)
-    targets = _collect_rename_targets(source, protected=_imported_names(source))
     name_map: dict[str, str] = {}
     used: set[str] = set()
-    for tok in targets:
-        if tok.string not in name_map:
-            name_map[tok.string] = _obscene_name(tok.string, eff_seed, used)
-    locked = _apply(source, targets, name_map)
+    if lang != "python" and lang in _lang.SPECS:
+        spans = _lang.extract_identifiers(source, _lang.SPECS[lang])
+        for _, _, nm in spans:
+            if nm not in name_map:
+                name_map[nm] = _obscene_name(nm, eff_seed, used)
+        locked = _apply_offsets(source, spans, name_map)
+    else:
+        lang = "python"
+        targets = _collect_rename_targets(source, protected=_imported_names(source))
+        for tok in targets:
+            if tok.string not in name_map:
+                name_map[tok.string] = _obscene_name(tok.string, eff_seed, used)
+        locked = _apply(source, targets, name_map)
 
-    meta: dict = {"version": META_VERSION, "salt": salt, "banner_text": None}
+    meta: dict = {"version": META_VERSION, "salt": salt, "banner_text": None, "lang": lang}
     if banner:
         bt = _banner_text(eff_seed)
         locked = bt + "\n" + locked
@@ -208,6 +228,11 @@ def unlock(locked_source: str, mapping: dict[str, str], meta: dict | None = None
     if banner_text and text.startswith(banner_text + "\n"):
         text = text[len(banner_text) + 1 :]
     reverse = {v: k for k, v in mapping.items()}
+    lang = meta.get("lang", "python")
+    if lang != "python" and lang in _lang.SPECS:
+        spans = _lang.extract_identifiers(text, _lang.SPECS[lang])
+        rename = {nm: reverse[nm] for _, _, nm in spans if nm in reverse}
+        return _apply_offsets(text, spans, rename)
     targets = _collect_rename_targets(text, protected=_imported_names(text))
     rename = {tok.string: reverse[tok.string] for tok in targets if tok.string in reverse}
     return _apply(text, targets, rename)

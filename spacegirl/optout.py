@@ -11,6 +11,8 @@ opt-out/licensing 보상). 본 모듈은 그 *machine-readable 거부 신호*를
 
 from __future__ import annotations
 
+import json
+
 # 알려진 AI 학습 크롤러 user-agent (2025-2026). 망라 아님 — 갱신 대상.
 AI_CRAWLERS: list[str] = [
     "GPTBot",
@@ -75,3 +77,33 @@ def notrain_header(lang: str = "python", contact: str = "") -> str:
         return f"/*\n{inner}\n */\n"
     inner = "\n".join(f"# {b}" for b in body)
     return inner + "\n"
+
+
+def c2pa_manifest(title: str = "", contact: str = "", as_json: bool = True):
+    """C2PA 스타일 do-not-train assertion manifest (서명 없는 stub).
+
+    ⚠️ 진짜 C2PA는 인증서 서명(c2pa lib + cert)이 필요 — 본 함수는 *unsigned* 선언 stub.
+    provenance/consent 층(PROM 12 teeth)의 machine-readable 표현.
+    """
+    manifest = {
+        "claim_generator": "spacegirl_tool/0.2",
+        "title": title or "do-not-train asset",
+        "assertions": [
+            {
+                "label": "c2pa.training-mining",
+                "data": {
+                    "entries": {
+                        "c2pa.ai_generative_training": {"use": "notAllowed"},
+                        "c2pa.ai_training": {"use": "notAllowed"},
+                        "c2pa.ai_inference": {"use": "notAllowed"},
+                        "c2pa.data_mining": {"use": "notAllowed"},
+                    }
+                },
+            }
+        ],
+        "_unsigned": True,
+        "_note": "unsigned stub — sign with a real C2PA toolchain for verifiable provenance",
+    }
+    if contact:
+        manifest["contact"] = contact
+    return json.dumps(manifest, ensure_ascii=False, indent=2) + "\n" if as_json else manifest

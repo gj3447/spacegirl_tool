@@ -122,3 +122,15 @@ def test_notrain_header_comment_form():
     assert py.startswith("#") and "DO-NOT-TRAIN" in py
     c = optout.notrain_header(lang="rust")
     assert c.startswith("/*")
+
+
+def test_c2pa_manifest_declares_no_training():
+    import json
+
+    m = optout.c2pa_manifest(contact="me@x.com", as_json=False)
+    entries = m["assertions"][0]["data"]["entries"]
+    assert entries["c2pa.ai_training"]["use"] == "notAllowed"
+    assert m["_unsigned"] is True
+    assert m["contact"] == "me@x.com"
+    # JSON 직렬화도 동작
+    assert "notAllowed" in optout.c2pa_manifest()
