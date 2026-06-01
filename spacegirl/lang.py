@@ -111,6 +111,7 @@ def extract_identifiers(source: str, spec: LangSpec) -> list[tuple[int, int, str
     line_c = sorted(spec.line_comment, key=len, reverse=True)
     block_c = spec.block_comment
     strings = spec.string_delims + spec.raw_string_delims
+    raw = spec.raw_string_delims
     while i < n:
         ch = source[i]
         # line comment
@@ -131,6 +132,29 @@ def extract_identifiers(source: str, spec: LangSpec) -> list[tuple[int, int, str
                 matched = True
                 break
         if matched:
+            continue
+        # template literal (backtick) — 리터럴은 건너뛰되 ${...} 내부 식별자는 추출
+        if ch == "`" and "`" in raw:
+            i += 1
+            while i < n and source[i] != "`":
+                if source[i] == "\\":
+                    i += 2
+                    continue
+                if source.startswith("${", i):
+                    depth, j = 1, i + 2
+                    while j < n and depth > 0:
+                        if source[j] == "{":
+                            depth += 1
+                        elif source[j] == "}":
+                            depth -= 1
+                        j += 1
+                    expr = source[i + 2 : j - 1]
+                    for s, e, nm in extract_identifiers(expr, spec):
+                        out.append((i + 2 + s, i + 2 + e, nm))
+                    i = j
+                    continue
+                i += 1
+            i += 1  # 닫는 backtick
             continue
         # string literal (escape-aware)
         if ch in strings:

@@ -86,3 +86,26 @@ def test_surface_roundtrip_nonpython():
     s = surface.apply_surface(r)
     assert surface.has_homoglyphs(s.text) > 0
     assert ssb.unlock(s.text, s.mapping, s.meta) == JS
+
+
+# TPA-D3 fix: template literal ${...} 내부 식별자도 치환
+def test_js_template_literal_identifiers_cloaked():
+    src = "const greet = (name) => `Hello ${name}, total ${name.length}`;\n"
+    r = ssb.lock(src, key="k", salt="f", lang="javascript")
+    # 정적 텍스트 "Hello"는 보존, ${} 안 name 은 오염
+    assert "Hello " in r.text
+    assert "${name}" not in r.text  # template 내부 식별자 치환됨
+    assert ".length" in r.text  # 멤버명은 보존
+    assert ssb.unlock(r.text, r.mapping, r.meta) == src
+
+
+# TPA-D2 fix: 도구가 자기 소스를 LOCKED로 오판하지 않음 (self-scan FP)
+def test_wall_does_not_flag_tool_own_source():
+    from pathlib import Path
+
+    from spacegirl import wall
+
+    pkg = Path(ssb.__file__).parent
+    for mod in ("vocab.py", "ssb.py", "wall.py", "lang.py"):
+        rep = wall.scan((pkg / mod).read_text(encoding="utf-8"))
+        assert rep.verdict != "LOCKED", f"{mod} false-positive: {rep}"
