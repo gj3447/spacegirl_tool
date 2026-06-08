@@ -1,0 +1,23 @@
+# spacegirl route 모드(ii) 엔드포인트 설정 예시  →  cp endpoints.example.toml endpoints.toml
+#
+# 스페이스걸 의의 = 의미·문맥을 *살린 채* 그레이트월을 넘기. 벽을 부수지 말고 *벽 없는 곳* 으로.
+# 여기 적는 건 허용된(무검열·self-host) OpenAI-호환 엔드포인트뿐이다.
+#
+# ⚠️ permitted=true 는 *운영자가 성인 콘텐츠 허용을 명시 확인* 했다는 attestation 이다.
+#    제3자 상용 안전필터를 "뚫는" 용도가 아니다 — PROM 16 A1/A4: 적응형 동급 LLM 필터를
+#    의미보존한 채 통과시키는 건 *구조적으로 불가능* (secure steganography = 공유키 필요).
+#    내구 정당성은 동의·연령·provenance(법/사회) 층이지 암호적 우회가 아니다 (B3/C6).
+
+[endpoints.dgx-local]
+base_url = "http://localhost:8000/v1"   # self-host vLLM/ollama (예: dgx GB10, 7B-32B)
+model = "your-uncensored-open-weight-model"
+api_key_env = ""        # self-host 무인증이면 빈 값
+permitted = true        # 운영자 attestation: 성인 콘텐츠 허용 확인함
+note = "self-host 무검열 open-weight. 의미보존(identity) 처리용."
+
+[endpoints.keyed-example]
+base_url = "https://api.example.com/v1"
+model = "some-model"
+api_key_env = "SPACEGIRL_API_KEY"   # 키는 환경변수로만 (디스크 평문 금지)
+permitted = false       # 기본 false — 해당 제공자 정책이 *실제로* 허용하는지 확인 전엔 route 거부 (D2: 가정 금지)
+note = "permitted=true 로 바꾸기 전 ToS 확인 필수."

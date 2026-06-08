@@ -23,6 +23,7 @@ from pathlib import Path
 from . import canary as canary_mod
 from . import lang as lang_mod
 from . import optout as optout_mod
+from . import route as route_mod
 from . import sidecar_crypto as sc_mod
 from . import ssb, surface, wall
 
@@ -146,6 +147,31 @@ def _cmd_optout(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_route(args: argparse.Namespace) -> int:
+    endpoints = route_mod.load_endpoints(args.config)
+    if args.list:
+        if not endpoints:
+            print("(설정된 엔드포인트 없음)")
+        for n, ep in endpoints.items():
+            flag = "permitted" if ep.permitted else "NOT-permitted"
+            print(f"{n}\t{ep.model}\t{ep.base_url}\t[{flag}] {ep.note}")
+        return 0
+    if not args.endpoint or args.prompt is None:
+        raise SystemExit("route: --endpoint 와 --prompt 필요 (목록은 --list)")
+    ep = endpoints.get(args.endpoint)
+    if ep is None:
+        raise SystemExit(f"endpoint '{args.endpoint}' 없음 (가능: {', '.join(endpoints) or '없음'})")
+    messages = []
+    if args.system:
+        messages.append({"role": "system", "content": args.system})
+    messages.append({"role": "user", "content": args.prompt})
+    content, _pf = route_mod.route_chat(
+        ep, messages, age_attested=args.age_attest, consent=args.consent, contact=args.contact
+    )
+    sys.stdout.write(content if content.endswith("\n") else content + "\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="spacegirl", description="SpaceGirl SSB semantic-lock tool")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -201,6 +227,17 @@ def build_parser() -> argparse.ArgumentParser:
     po.add_argument("--lang", default="python")
     po.add_argument("-o", "--out")
     po.set_defaults(func=_cmd_optout)
+
+    pr = sub.add_parser("route", help="모드(ii): 의미보존 라우팅 → 허용 엔드포인트 (PROM 16, 벽 없는 곳으로)")
+    pr.add_argument("--config", default="endpoints.toml", help="endpoints.toml 경로")
+    pr.add_argument("--list", action="store_true", help="설정된 엔드포인트 목록")
+    pr.add_argument("--endpoint", help="사용할 엔드포인트 이름")
+    pr.add_argument("--prompt", help="user 메시지 (의미 그대로 전달 — identity)")
+    pr.add_argument("--system", default=None, help="system 메시지 (선택)")
+    pr.add_argument("--age-attest", action="store_true", help="성인(18+) 확인 게이트")
+    pr.add_argument("--consent", action="store_true", help="콘텐츠 처리 동의 게이트")
+    pr.add_argument("--contact", default="", help="provenance contact")
+    pr.set_defaults(func=_cmd_route)
     return p
 
 
@@ -208,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv if argv is not None else sys.argv[1:])
     try:
         return args.func(args)
-    except (ValueError, FileNotFoundError) as e:  # 깔끔한 에러 (raw traceback 대신)
+    except (ValueError, FileNotFoundError, route_mod.RouteError) as e:  # 깔끔한 에러 (raw traceback 대신)
         print(f"error: {e}", file=sys.stderr)
         return 1
 

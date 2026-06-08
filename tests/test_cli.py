@@ -76,3 +76,25 @@ def test_cli_scan_and_optout(tmp_path, capsys):
     f.write_text(PY)
     assert cli.main(["scan", str(f)]) == 0  # clean python -> CLEAR
     assert cli.main(["optout", "robots"]) == 0
+
+
+def _route_cfg(tmp_path):
+    cfg = tmp_path / "endpoints.toml"
+    cfg.write_text('[endpoints.x]\nbase_url="http://h/v1"\nmodel="m"\npermitted=true\n')
+    return cfg
+
+
+def test_cli_route_list(tmp_path):
+    assert cli.main(["route", "--list", "--config", str(_route_cfg(tmp_path))]) == 0
+
+
+def test_cli_route_preflight_blocks_without_age(tmp_path):
+    # --age-attest 없음 → preflight 차단 = 깔끔한 에러(rc=1), 네트워크 도달 전 (PROM 16 B3 게이트)
+    cfg = _route_cfg(tmp_path)
+    rc = cli.main(["route", "--endpoint", "x", "--prompt", "hi", "--consent", "--config", str(cfg)])
+    assert rc == 1
+
+
+def test_cli_route_missing_config(tmp_path):
+    rc = cli.main(["route", "--list", "--config", str(tmp_path / "nope.toml")])
+    assert rc == 1  # RouteError -> 깔끔한 에러
