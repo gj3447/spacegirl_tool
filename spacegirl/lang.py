@@ -14,7 +14,7 @@ Python 경로와 동일 (offset 치환).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 # Unicode-aware: 키릴 homoglyph 가 섞인 식별자(surface 층)도 매치해야 unlock 가역.
 # 시작=letter/underscore/$ (digit 제외), 이어짐=word char/$.

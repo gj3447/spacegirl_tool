@@ -23,6 +23,7 @@ from pathlib import Path
 from . import canary as canary_mod
 from . import lang as lang_mod
 from . import optout as optout_mod
+from . import sidecar_crypto as sc_mod
 from . import ssb, surface, wall
 
 
@@ -34,29 +35,69 @@ def _cmd_lock(args: argparse.Namespace) -> int:
     src = Path(args.file).read_text(encoding="utf-8")
     salt = args.salt if args.salt is not None else str(args.file)
     lang = args.lang or lang_mod.lang_for_path(str(args.file))
-    result = ssb.lock(src, key=args.key, salt=salt, banner=args.banner, lang=lang)
+    result = ssb.lock(src, key=args.key, salt=salt, banner=args.banner, lang=lang, mode=args.mode)
     if args.surface:
         result = surface.apply_surface(result)
     out = Path(args.out) if args.out else Path(args.file)
     out.write_text(result.text, encoding="utf-8")
+
     sc = _sidecar_path(out)
-    sc.write_text(json.dumps(result.sidecar(), ensure_ascii=False, indent=2), encoding="utf-8")
+    # fpe 모드는 key+salt 로 복원 → 매핑(비밀) 을 디스크에 두지 않는다 (meta 만).
+    payload = {"meta": result.meta} if args.mode == "fpe" else result.sidecar()
+    sidecar_json = json.dumps(payload, ensure_ascii=False, indent=2)
+    if args.encrypt_sidecar:
+        env = sc_mod.encrypt_sidecar(sidecar_json, args.encrypt_sidecar, backend=args.sidecar_backend)
+        sc = sc.with_suffix(sc.suffix + ".enc")
+        sc.write_text(env, encoding="utf-8")
+    else:
+        sc.write_text(sidecar_json, encoding="utf-8")
+
     layers = ["rename"] + (["banner"] if args.banner else []) + (["surface"] if args.surface else [])
-    print(f"locked[{lang}] -> {out}  ({len(result.mapping)} ids, layers: {'+'.join(layers)})  map -> {sc}")
+    sidecar_note = "key+salt (meta only, no map on disk)" if args.mode == "fpe" else f"map -> {sc}"
+    print(
+        f"locked[{lang}/{args.mode}] -> {out}  ({len(result.mapping)} ids, "
+        f"layers: {'+'.join(layers)})  {sidecar_note}"
+    )
     return 0
+
+
+def _load_sidecar(path: Path, passphrase: str | None):
+    raw_text = path.read_text(encoding="utf-8")
+    if path.suffix == ".enc" or sc_mod.MAGIC in raw_text[:200]:
+        if not passphrase:
+            raise SystemExit("암호화된 sidecar — --sidecar-pass 필요")
+        raw_text = sc_mod.decrypt_sidecar(raw_text, passphrase)
+    raw = json.loads(raw_text)
+    if isinstance(raw, dict) and "mapping" in raw:
+        return raw["mapping"], raw.get("meta", {})
+    if isinstance(raw, dict) and "meta" in raw:  # fpe: meta-only sidecar (매핑 없음)
+        return None, raw["meta"]
+    return raw, {}  # legacy: bare mapping dict
 
 
 def _cmd_unlock(args: argparse.Namespace) -> int:
     src = Path(args.file).read_text(encoding="utf-8")
-    map_path = Path(args.map) if args.map else _sidecar_path(Path(args.file))
-    raw = json.loads(map_path.read_text(encoding="utf-8"))
-    # 하위호환: 평문 dict(mapping) 또는 {mapping, meta}
-    mapping = raw.get("mapping", raw) if isinstance(raw, dict) and "mapping" in raw else raw
-    meta = raw.get("meta", {}) if isinstance(raw, dict) else {}
-    restored = ssb.unlock(src, mapping, meta)
+    mapping, meta = None, {}
+    # sidecar 위치 추정 (.ssb.json 또는 .ssb.json.enc)
+    if args.map:
+        map_path = Path(args.map)
+    else:
+        base = _sidecar_path(Path(args.file))
+        enc = base.with_suffix(base.suffix + ".enc")
+        map_path = enc if enc.exists() and not base.exists() else base
+    if map_path.exists():
+        mapping, meta = _load_sidecar(map_path, args.sidecar_pass)
+    elif args.mode != "fpe" and not args.key:
+        raise SystemExit(f"sidecar 없음: {map_path} (fpe 모드면 --key, 또는 --map 지정)")
+
+    # CLI 가 명시한 mode/key 가 meta 보다 우선
+    if args.mode:
+        meta = {**meta, "mode": args.mode}
+    restored = ssb.unlock(src, mapping, meta, key=args.key, salt=args.salt)
     out = Path(args.out) if args.out else Path(args.file)
     out.write_text(restored, encoding="utf-8")
-    print(f"unlocked -> {out}  ({len(mapping)} ids restored)")
+    n = len(mapping) if mapping else "key-derived"
+    print(f"unlocked -> {out}  ({n} ids restored)")
     return 0
 
 
@@ -111,17 +152,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     pl = sub.add_parser("lock", help="network -> sexvoid 의미론적 잠금")
     pl.add_argument("file")
-    pl.add_argument("--key", default=None, help="비밀 시드 (매핑 재현엔 key+salt 필요)")
+    pl.add_argument("--key", default=None, help="비밀 시드 (매핑 재현엔 key+salt 필요; fpe 모드 필수)")
     pl.add_argument("--salt", default=None, help="per-file 분리자 (기본=파일경로)")
+    pl.add_argument("--mode", choices=["obscene", "fpe"], default="obscene",
+                    help="obscene=외설어 치환(NSFW 트리거, sidecar 필요) / fpe=FF1 키-유도(sidecar 불요)")
     pl.add_argument("--banner", action="store_true", help="Bo R-18 배너 주입 (NSFW 트리거)")
     pl.add_argument("--surface", action="store_true", help="homoglyph 표면층 (opportunistic)")
     pl.add_argument("--lang", default=None, help="언어 (기본=확장자 자동감지): python/javascript/typescript/rust/go/java/c/cpp")
+    pl.add_argument("--encrypt-sidecar", default=None, metavar="PASS",
+                    help="sidecar 를 passphrase 로 암호화 (.ssb.json.enc) — PROM16 C2")
+    pl.add_argument("--sidecar-backend", choices=["native", "sops"], default="native")
     pl.add_argument("-o", "--out")
     pl.set_defaults(func=_cmd_lock)
 
     pu = sub.add_parser("unlock", help="sexvoid -> network 복원")
     pu.add_argument("file")
-    pu.add_argument("--map", help="sidecar (기본 <file>.ssb.json)")
+    pu.add_argument("--map", help="sidecar (기본 <file>.ssb.json[.enc])")
+    pu.add_argument("--key", default=None, help="fpe 모드 복원 키 (key+salt 로 복원)")
+    pu.add_argument("--salt", default=None,
+                    help="fpe 복원 salt (사이드카 없을 때 필수; 기본=사이드카 meta). key-only 는 복원 불가")
+    pu.add_argument("--mode", choices=["obscene", "fpe"], default=None, help="meta 의 mode 강제 override")
+    pu.add_argument("--sidecar-pass", default=None, help="암호화 sidecar 복호 passphrase")
     pu.add_argument("-o", "--out")
     pu.set_defaults(func=_cmd_unlock)
 
@@ -155,7 +206,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv if argv is not None else sys.argv[1:])
-    return args.func(args)
+    try:
+        return args.func(args)
+    except (ValueError, FileNotFoundError) as e:  # 깔끔한 에러 (raw traceback 대신)
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

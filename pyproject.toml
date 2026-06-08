@@ -28,10 +28,15 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
+# FF1 FPE 모드 + native sidecar 암호화(scrypt+ChaCha20)에 필요. 문서/에러가 안내하는 extra.
+crypto = [
+    "cryptography>=42",
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
     "ruff>=0.4",
+    "cryptography>=42",
 ]
 
 [project.scripts]

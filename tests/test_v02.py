@@ -125,7 +125,6 @@ def test_notrain_header_comment_form():
 
 
 def test_c2pa_manifest_declares_no_training():
-    import json
 
     m = optout.c2pa_manifest(contact="me@x.com", as_json=False)
     entries = m["assertions"][0]["data"]["entries"]

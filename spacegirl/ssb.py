@@ -1,11 +1,15 @@
 """SSB (Sek-Sek-Bo) — 가역 의미론적 잠금 엔진 (cloaking mode).
 
 SpaceGirl(#5 사도)의 공학적 결정화. network → sexvoid 데이터 이송.
-순수이성인간(LLM 학습 파이프라인)이 못 읽도록 *식별자 표면*을 오염시키되,
-*로직은 보존*하고 sidecar 매핑으로 *완전 가역* 한다.
+순수이성인간(LLM 학습 파이프라인)이 못 읽도록 *식별자 표면*을 오염시키고
+sidecar 매핑으로 *완전 가역* 한다.
 
-핵심 불변식:
+핵심·보장 불변식 (단 하나):
     unlock(lock(src,...).text, mapping, meta) == src   (round-trip identity)
+
+잠긴 산출물의 *실행 보존* 은 보장이 아닌 best-effort (본령 = 학습 코퍼스 drop, 잠긴 파일은
+돌릴 대상이 아님). 메서드 호출부·비-Python 빌트인·cross-file 호출은 잠금 후 안 돌 수 있다
+(audit HIGH 2026-06-08). 의미보존 처리는 잠금이 아니라 허용 엔드포인트 라우팅(route 모드)의 몫.
 
 위협모델 (THREAT_MODEL.md 정본): SSB = **cloaking**. 외설/taboo 식별자가
 NSFW·toxicity 데이터정제 필터를 작동시켜 파일을 *학습 코퍼스에서 drop* 시키는 게 본령
@@ -34,6 +38,7 @@ import keyword
 import tokenize
 from dataclasses import dataclass, field
 
+from . import fpe as _fpe
 from . import lang as _lang
 from . import vocab
 
@@ -88,6 +93,19 @@ def _is_renamable(tok_string: str) -> bool:
     if tok_string.startswith("__") and tok_string.endswith("__"):
         return False
     return True
+
+
+def _fpe_validity(lang: str):
+    """fpe cycle-walking 회피 술어 — 잠긴 토큰이 unlock 이 *다시 수집·복호* 하는 유효 식별자인지.
+
+    encrypt/decrypt 가 이 술어를 공유해야 가역 (audit HIGH 2026-06-08 K0->'as' 침묵 실패 차단).
+    Python = _is_renamable (키워드/소프트키워드/빌트인/dunder 거름),
+    비-Python = 유효 식별자 ∧ ¬언어키워드 (lang.extract_identifiers 가 수집하는 조건과 동일).
+    """
+    if lang != "python" and lang in _lang.SPECS:
+        kw = frozenset(_lang.SPECS[lang].keywords)
+        return lambda s: s.isidentifier() and s not in kw
+    return _is_renamable
 
 
 def _obscene_name(original: str, seed: str, used: set[str]) -> str:
@@ -193,6 +211,15 @@ def _banner_text(seed: str) -> str:
     return vocab.BO_MARKERS[h % len(vocab.BO_MARKERS)]
 
 
+def _rename_targets(source: str, lang: str):
+    """언어별 치환 대상 — (targets, ordered_names, is_python)."""
+    if lang != "python" and lang in _lang.SPECS:
+        spans = _lang.extract_identifiers(source, _lang.SPECS[lang])
+        return spans, [nm for _, _, nm in spans], False
+    targets = _collect_rename_targets(source, protected=_imported_names(source))
+    return targets, [t.string for t in targets], True
+
+
 def lock(
     source: str,
     key: str | None = None,
@@ -200,6 +227,7 @@ def lock(
     banner: bool = False,
     seed: str = "spacegirl",
     lang: str = "python",
+    mode: str = "obscene",
 ) -> LockResult:
     """network -> sexvoid: 식별자를 오염시켜 의미론적으로 잠근다 (가역).
 
@@ -207,45 +235,84 @@ def lock(
     salt: per-file 분리자 (보통 파일경로) — cross-file frequency-hiding.
     banner: 상단에 Bo(R-18) 마커 주입 — NSFW 필터 트리거 강화 (가역).
     lang: 'python'(AST-aware) 또는 javascript/typescript/rust/go/java/c/cpp(generic).
+    mode:
+      - 'obscene' (기본): 외설 어휘 치환 (NSFW 필터 트리거 → drop-from-corpus). sidecar 필요.
+      - 'fpe'    : FF1 키-유도 format-preserving 암호화 (PROM 16 C1). **sidecar 불요** —
+                   key+salt 만으로 복원. 출력은 유효 식별자(난수꼴, 외설 아님 → 마찰층).
+                   file-level 결정론이라 파일 내 빈도 누출 (frequency-hiding 필요시 obscene).
     """
-    eff_seed = _derive_seed(key, salt, seed)
+    if mode not in ("obscene", "fpe"):
+        raise ValueError(f"알 수 없는 mode: {mode}")
+
+    targets, names, is_py = _rename_targets(source, lang)
+    if not (lang != "python" and lang in _lang.SPECS):
+        lang = "python"
+
     name_map: dict[str, str] = {}
-    used: set[str] = set()
-    if lang != "python" and lang in _lang.SPECS:
-        spans = _lang.extract_identifiers(source, _lang.SPECS[lang])
-        for _, _, nm in spans:
+    if mode == "fpe":
+        if key is None:
+            raise ValueError("fpe 모드는 key 가 필요합니다 (매핑파일 없이 key+salt 로 복원)")
+        fkey = _fpe.derive_key(key)
+        valid = _fpe_validity(lang)
+        for nm in names:
+            if nm not in name_map:
+                name_map[nm] = _fpe.fpe_encrypt_identifier(fkey, salt, nm, is_valid=valid)
+    else:
+        eff_seed = _derive_seed(key, salt, seed)
+        used: set[str] = set()
+        for nm in names:
             if nm not in name_map:
                 name_map[nm] = _obscene_name(nm, eff_seed, used)
-        locked = _apply_offsets(source, spans, name_map)
-    else:
-        lang = "python"
-        targets = _collect_rename_targets(source, protected=_imported_names(source))
-        for tok in targets:
-            if tok.string not in name_map:
-                name_map[tok.string] = _obscene_name(tok.string, eff_seed, used)
-        locked = _apply(source, targets, name_map)
 
-    meta: dict = {"version": META_VERSION, "salt": salt, "banner_text": None, "lang": lang}
+    locked = _apply(source, targets, name_map) if is_py else _apply_offsets(source, targets, name_map)
+
+    meta: dict = {"version": META_VERSION, "salt": salt, "banner_text": None, "lang": lang, "mode": mode}
     if banner:
-        bt = _banner_text(eff_seed)
+        bt = _banner_text(_derive_seed(key, salt, seed))
         locked = bt + "\n" + locked
         meta["banner_text"] = bt
     return LockResult(text=locked, mapping=name_map, meta=meta)
 
 
-def unlock(locked_source: str, mapping: dict[str, str], meta: dict | None = None) -> str:
-    """sexvoid -> network: sidecar 매핑으로 원본 식별자를 복원한다."""
+def unlock(
+    locked_source: str,
+    mapping: dict[str, str] | None = None,
+    meta: dict | None = None,
+    key: str | None = None,
+    salt: str | None = None,
+) -> str:
+    """sexvoid -> network: 원본 식별자를 복원한다.
+
+    obscene 모드: sidecar `mapping` 필요.
+    fpe 모드: `key` + `salt` 로 복원 (매핑파일 불요). salt 는 명시 인자 > meta["salt"] 순.
+        둘 다 없으면 *침묵 쓰레기 대신 ValueError* (audit HIGH 2026-06-08 — key-only 는 복원 불가).
+    """
     meta = meta or {}
     text = locked_source
     banner_text = meta.get("banner_text")
     if banner_text and text.startswith(banner_text + "\n"):
         text = text[len(banner_text) + 1 :]
-    reverse = {v: k for k, v in mapping.items()}
     lang = meta.get("lang", "python")
-    if lang != "python" and lang in _lang.SPECS:
-        spans = _lang.extract_identifiers(text, _lang.SPECS[lang])
-        rename = {nm: reverse[nm] for _, _, nm in spans if nm in reverse}
-        return _apply_offsets(text, spans, rename)
-    targets = _collect_rename_targets(text, protected=_imported_names(text))
-    rename = {tok.string: reverse[tok.string] for tok in targets if tok.string in reverse}
-    return _apply(text, targets, rename)
+    mode = meta.get("mode", "obscene")
+
+    targets, names, is_py = _rename_targets(text, lang)
+
+    if mode == "fpe":
+        if key is None:
+            raise ValueError("fpe 모드 복원엔 key 가 필요합니다")
+        fkey = _fpe.derive_key(key)
+        eff_salt = salt if salt is not None else meta.get("salt")
+        if eff_salt is None:
+            raise ValueError(
+                "fpe 복원엔 salt 가 필요합니다 (사이드카 meta 또는 명시 salt 인자). "
+                "키만으로는 복원 불가 — 침묵 손상 방지 (audit HIGH 2026-06-08)."
+            )
+        valid = _fpe_validity(lang)
+        rename = {nm: _fpe.fpe_decrypt_identifier(fkey, eff_salt, nm, is_valid=valid) for nm in set(names)}
+    else:
+        if mapping is None:
+            raise ValueError("obscene 모드 복원엔 sidecar mapping 이 필요합니다")
+        reverse = {v: k for k, v in mapping.items()}
+        rename = {nm: reverse[nm] for nm in set(names) if nm in reverse}
+
+    return _apply(text, targets, rename) if is_py else _apply_offsets(text, targets, rename)
