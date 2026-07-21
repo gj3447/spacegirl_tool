@@ -3,7 +3,7 @@ name = "spacegirl_tool"
 version = "0.4.0"
 description = "SpaceGirl(#5 사도)의 공학적 결정화 — SSB(Sek-Sek-Bo) 의미론적 잠금 도구. network <-> sexvoid 경계 횡단. 로직 보존 + 가역 식별자 오염으로 LLM 학습 거부(adversarial dataset / 코드 보호 art project). 공학 짝패 = Longinus(참조의 미학)."
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "AGPL-3.0-or-later" }
 authors = [{ name = "gj3447 (METAHUMOTONIC)", email = "gj3447@gmail.com" }]
 requires-python = ">=3.11"
 keywords = [
@@ -19,7 +19,7 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
