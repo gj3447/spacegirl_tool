@@ -2,7 +2,7 @@
 
     spacegirl lock   <file> [--key K] [--salt S] [--banner] [--surface] [-o OUT]
     spacegirl unlock <file> [--map M] [-o OUT]
-    spacegirl scan   <file>
+    spacegirl scan   <path> [--json] [--catalog]   # file or directory (WE_FLYING_UP P1)
     spacegirl canary inject <file> --secret S [--label L] [-o OUT]
     spacegirl canary check  <file> --secret S [--label L]
     spacegirl optout robots|ai|header [--contact C] [--policy URL] [-o OUT]
@@ -103,15 +103,64 @@ def _cmd_unlock(args: argparse.Namespace) -> int:
 
 
 def _cmd_scan(args: argparse.Namespace) -> int:
-    src = Path(args.file).read_text(encoding="utf-8")
-    rep = wall.scan(src)
-    hg = surface.has_homoglyphs(src)
-    cans = canary_mod.scan_tokens(src)
-    print(
-        f"{rep.verdict}  score={rep.score}  taboo={rep.taboo_hits}  "
-        f"markers={rep.marker_hits}  homoglyphs={hg}  canaries={len(cans)}"
-    )
-    return 0 if rep.verdict != "LOCKED" else 2
+    """GREAT_WALL 탐지. 파일 1개 또는 디렉터리 재귀 (WE_FLYING_UP Phase 1)."""
+    target = Path(args.path)
+    if not target.exists():
+        raise FileNotFoundError(str(target))
+
+    if target.is_dir():
+        tree = wall.scan_tree(target)
+        if args.json:
+            payload = tree.to_dict()
+            if args.catalog:
+                payload["erased_catalog"] = wall.catalog_erased(tree)
+            sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        else:
+            print(
+                f"sexvoid map  root={tree.root}  "
+                f"files={len(tree.files)}  locked={tree.locked}  "
+                f"ambiguous={tree.ambiguous}  clear={tree.clear}  "
+                f"reversible={tree.reversible}  errors={tree.errors}"
+            )
+            for f in tree.files:
+                if args.all or f.verdict != "CLEAR" or f.reversible:
+                    tiers = ",".join(f.tiers) if f.tiers else "-"
+                    sc = f.sidecar or "-"
+                    rev = "yes" if f.reversible else "no"
+                    print(
+                        f"  {f.verdict:10} score={f.score:<5} rev={rev:3} "
+                        f"tiers={tiers:28} {f.path}"
+                    )
+                    if args.catalog and f.erased_ids:
+                        print(f"    erased: {', '.join(f.erased_ids[:20])}"
+                              + ("…" if len(f.erased_ids) > 20 else ""))
+                    if f.error:
+                        print(f"    error: {f.error}")
+        # dir: locked 있으면 2, ambiguous만 있으면 0 (info)
+        return 2 if tree.locked else 0
+
+    # single file
+    fr = wall.scan_file(target)
+    if args.json:
+        payload = fr.to_dict()
+        sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    else:
+        tiers = ",".join(fr.tiers) if fr.tiers else "-"
+        print(
+            f"{fr.verdict}  score={fr.score}  taboo={fr.taboo_hits}  "
+            f"markers={fr.marker_hits}  homoglyphs={fr.homoglyphs}  "
+            f"canaries={fr.canary_count}  tiers={tiers}  "
+            f"reversible={fr.reversible}  sidecar={fr.sidecar or '-'}"
+        )
+        if args.catalog and fr.erased_ids:
+            print("erased_ids:")
+            for name in fr.erased_ids:
+                print(f"  - {name}")
+        if fr.error:
+            print(f"error: {fr.error}", file=sys.stderr)
+    if fr.verdict == "ERROR":
+        return 1
+    return 0 if fr.verdict != "LOCKED" else 2
 
 
 def _cmd_canary(args: argparse.Namespace) -> int:
@@ -202,8 +251,22 @@ def build_parser() -> argparse.ArgumentParser:
     pu.add_argument("-o", "--out")
     pu.set_defaults(func=_cmd_unlock)
 
-    ps = sub.add_parser("scan", help="GREAT_WALL — 잠금/표면/canary 탐지")
-    ps.add_argument("file")
+    ps = sub.add_parser(
+        "scan",
+        help="GREAT_WALL — 잠금/표면/canary 탐지 (파일 또는 디렉터리 재귀)",
+    )
+    ps.add_argument("path", help="파일 또는 디렉터리")
+    ps.add_argument("--json", action="store_true", help="기계 판독 JSON 출력")
+    ps.add_argument(
+        "--catalog",
+        action="store_true",
+        help="sidecar mapping 의 원본 식별자 목록 (SEX_VOID 발굴 카탈로그)",
+    )
+    ps.add_argument(
+        "--all",
+        action="store_true",
+        help="디렉터리 모드에서 CLEAR 파일도 모두 출력 (기본=비CLEAR/가역만)",
+    )
     ps.set_defaults(func=_cmd_scan)
 
     pc = sub.add_parser("canary", help="비파괴 무단학습 증명 워터마크")
