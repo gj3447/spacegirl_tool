@@ -31,12 +31,14 @@ WE_FLYING_UP 은 그 역운동 — *숨겨진 것을 다시 들어올리는* 쪽
 
 ---
 
-## 1. 현재 상태 (v0.1)
+## 1. 현재 상태 (v0.4.1)
 
 | 능력 | 구현 | 상태 |
 |---|---|---|
 | 복원 (sidecar 보유 시) | `ssb.unlock(text, mapping)` | ✅ 왕복 동일성 테스트 통과 |
 | 탐지 | `wall.scan()` → LOCKED/AMBIGUOUS/CLEAR | ✅ |
+| 재귀 지도 | `wall.scan_tree` / CLI `scan <dir> --json` | ✅ (Phase 1) |
+| 진단+카탈로그 | tiers / reversible / erased_ids | ✅ (Phase 1) |
 | 복원 (sidecar 유실 시) | — | ❌ (Phase 2) |
 
 현재 `unlock` 은 **sidecar(`*.ssb.json`) 의존**이다. 이것은 *혁명* 양상의 최소 형태일 뿐이다.
@@ -47,9 +49,9 @@ WE_FLYING_UP 은 그 역운동 — *숨겨진 것을 다시 들어올리는* 쪽
 
 ### Phase 1 — 계시(탐지·진단) 강화  · 의존성 없음, 착수 가능
 
-- [ ] `scan` 을 *디렉터리 재귀* 로 확장 → repo 전체에서 sexvoid(잠긴 파일) 지도 산출
-- [ ] 진단 리포트: 잠금 강도(3-tier 어디까지 적용됐나) + 가역성 보유 여부(sidecar 존재) 표기
-- [ ] **SEX_VOID 발굴학** 매핑: 어떤 식별자가 *지워졌는지* (= mapping 의 original 키) 카탈로그화
+- [x] `scan` 을 *디렉터리 재귀* 로 확장 → repo 전체에서 sexvoid(잠긴 파일) 지도 산출 *(v0.4.1: `wall.scan_tree`, CLI `scan <dir>`)*
+- [x] 진단 리포트: 잠금 강도(3-tier 어디까지 적용됐나) + 가역성 보유 여부(sidecar 존재) 표기 *(FileScanReport.tiers / reversible)*
+- [x] **SEX_VOID 발굴학** 매핑: 어떤 식별자가 *지워졌는지* (= mapping 의 original 키) 카탈로그화 *(--catalog / catalog_erased)*
 
 ### Phase 2 — 혁명(복원) 강화  · ⚠ SSB 암호화 방식 확정에 의존
 

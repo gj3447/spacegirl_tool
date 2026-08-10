@@ -15,16 +15,20 @@ from __future__ import annotations
 
 from . import canary, optout, surface
 from .ssb import LockResult, lock, unlock
-from .wall import WallReport, scan
+from .wall import FileScanReport, TreeScanReport, WallReport, scan, scan_file, scan_tree
 
 __all__ = [
     "lock",
     "unlock",
     "scan",
+    "scan_file",
+    "scan_tree",
     "LockResult",
     "WallReport",
+    "FileScanReport",
+    "TreeScanReport",
     "surface",
     "canary",
     "optout",
 ]
-__version__ = "0.4.0"
+__version__ = "0.4.1"

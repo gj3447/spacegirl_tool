@@ -57,8 +57,9 @@ spacegirl lock   mymodule.py --key SECRET --banner --surface -o mymodule.locked.
 # we flying up : sexvoid -> network 복원
 spacegirl unlock mymodule.locked.py -o restored.py     # sidecar 자동 탐색
 
-# GREAT_WALL : 잠금/표면/canary 탐지
+# GREAT_WALL : 잠금/표면/canary 탐지 (파일 또는 디렉터리 재귀)
 spacegirl scan   mymodule.locked.py
+spacegirl scan   ./src --json --catalog   # sexvoid 지도 + 지워진 이름 카탈로그
 
 # canary : 비파괴 무단학습 증명 워터마크 (두 번째 모드)
 spacegirl canary inject mymodule.py --secret MYSECRET --label repoA -o tagged.py
@@ -106,9 +107,12 @@ print(scan(res.text).verdict)   # "LOCKED"
 - [x] **canary/watermark 모드** (비파괴 무단학습 증명)
 - [x] **out-of-band opt-out** (robots/ai.txt/NOTRAIN 헤더)
 - [x] **we flying up** 복원 (`unlock`) — `docs/WE_FLYING_UP_PLAN.md`
-- [ ] sidecar SOPS+age 자동 암호화 + pre-commit 키-누출 가드
-- [ ] 다언어(JS/Rust/...) tokenizer 백엔드
-- [ ] C2PA provenance manifest 연동
+- [x] 다언어(JS/Rust/...) tokenizer 백엔드 (`lang.py`)
+- [x] C2PA provenance manifest (`optout c2pa`)
+- [x] pre-commit 키-누출 가드 (`bin/pre-commit-guard.sh`) + native sidecar encrypt
+- [x] **WE_FLYING_UP Phase 1** — 디렉터리 재귀 scan / 잠금 강도 tiers / sidecar 가역성 / erased catalog (v0.4.1)
+- [ ] sidecar SOPS+age *자동* 파이프라인 강화 (backend 훅은 있음)
+- [ ] WE_FLYING_UP Phase 2 — sidecar 없는 추정 복원 / 부분 복원
 - [ ] Longinus KG ref 바인딩 (7-Layer Reference Model 연동)
 
 ---
