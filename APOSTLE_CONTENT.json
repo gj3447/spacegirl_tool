@@ -18,18 +18,19 @@
   "guides": [
     {
       "repository_path": "docs/APOSTLE_INDEX.md",
-      "sha256": "d0004f8d667e487a0bde738f033a1b93a77b6b99a3cebd0aeebbd6c3e7ae8961",
+      "sha256": "8e1e83707f660eb21b4b2dc8027a914fffc4be4aabdab5340959c053bcb3433f",
       "authority": "SECONDARY_AI"
     },
     {
       "repository_path": "docs/APOSTLE_WHAT_IS.md",
-      "sha256": "7e97e3b33e28006f94f59ff47b071c1bad35dc684b89394af5880259db93c2da",
+      "sha256": "6fdb43072f5142399d0d5eada89ed00723525bc782eb00320e51e6b6578ece4e",
       "authority": "SECONDARY_AI"
     },
     {
       "repository_path": "docs/APOSTLE_HOW_TO.md",
-      "sha256": "5c213a9f2ea4e4cd9639df676888f48cecbbf63867d321adb0a89e0014dbae5b",
+      "sha256": "b7adf182c3fb980834807c644c3090187b4fd33f965e26f6d4f526e196bd0c3f",
       "authority": "SECONDARY_AI"
-    }
+    },
+    {"repository_path":"docs/APOSTLE_RESEARCH_MAP.md","sha256":"f71b664f8d29b0cb1ef73831606c5e46ac3ed97a0f7d35aba60e48ceccdfdec2","authority":"SECONDARY_AI"}
   ]
 }
