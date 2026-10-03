@@ -13,6 +13,8 @@
 | Phase 1 | 구현한다 | 재귀 scan·tier·reversible·erased catalog | [WE_FLYING_UP 계획](WE_FLYING_UP_PLAN.md#1-) | SOURCE_DOCUMENT |
 | Phase 2 | 계획한다 | sidecar 없는/부분 복원 | [WE_FLYING_UP 계획](WE_FLYING_UP_PLAN.md#2-) | SOURCE_DOCUMENT |
 | poisoning | 채택하지 않는다 | 코퍼스 오염 모드 | [THREAT_MODEL](../THREAT_MODEL.md#) | SOURCE_DOCUMENT |
+| PROM 12 decision | 유지한다 | cloaking single default와 non-destructive canary/opt-out | [PROM 12](SSB_CRYPTO_PROM/PROM_12_MODE_SPLIT_REPORT.md) | SOURCE_DOCUMENT |
+| PROM 16 design | 구분한다 | reversible mapping의 보관 위험과 기술적 한계 | [PROM 16](SSB_CRYPTO_PROM/PROM_16_REPORT.md) | SOURCE_DOCUMENT |
 | public repo | 제외한다 | sidecar와 key | [THREAT_MODEL](../THREAT_MODEL.md#) | SOURCE_DOCUMENT |
 
 공개 계약의 핵심은 가역성이다. 강한 암호화, 모델 학습 차단, 잠긴 코드의 실행 보존은 이 표가 보장하지 않는다.
