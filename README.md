@@ -4,7 +4,7 @@
 > `network ↔ sexvoid` 경계 횡단. 공학 짝패 = **Longinus**(참조의 미학, KG 의미 계층을 코드까지 관통).
 
 [![python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org)
-[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MHL--1.2-blue)](LICENSE-NOTICE.md)
 
 ---
 
@@ -123,3 +123,11 @@ print(scan(res.text).verdict)   # "LOCKED"
 - 자매 도구: `bhgman_tool` (#4 비행기맨 결정화)
 
 # KG: ATOM_SPACEGIRL_index_2026-04-27, ATOM_SPACEGIRL_SSB_코드_2026-04-27
+
+## License
+
+**MetaHumotonic License 1.2** — [LICENSE](LICENSE); [scope, prior grants and third-party notices](LICENSE-NOTICE.md).
+
+지정한 하드웨어의 접근권한과 전체 관리 권한을 합의한 명세서에 따라 공유하고, **CHU의 일부가 된다**는 참여 원칙을 적용합니다. 실제 접근에는 별도 승인이 필요합니다.
+
+Source-available; not OSI-approved. Existing grants and separately licensed material remain valid.
